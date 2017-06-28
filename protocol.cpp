@@ -31,6 +31,9 @@ public:
 	{
 	}
 
+	uint8_t nwkid() { return _nwkid; }
+	uint32_t nwkaddr() { return _nwkaddr; }
+
 	std::string encode() {
 		std::string buf;
 
@@ -45,6 +48,17 @@ public:
 		return buf;
 	}
 
+	static DevAddr * decode(std::string bytes) {
+		uint8_t  nwkid   = (bytes[3] >> 1) & 0x7f;
+		uint32_t nwkaddr = (
+			((bytes[0] << 0)  & 0x000000ff) |
+			((bytes[1] << 8)  & 0x0000ff00) |
+			((bytes[2] << 16) & 0x00ff0000) |
+			((bytes[3] << 24) & 0xff000000) 
+			) & 0x01ffffff;
+		
+		return new DevAddr(nwkid, nwkaddr);
+	}
 };
 
 class AppNonce {
@@ -77,21 +91,31 @@ public:
 	bool adrackreq() { return _adrackreq; }
 	bool ack() { return _ack; }
 	bool fpending() { return _fpending; }
-	bool foptslen() { return _foptslen; }
+	uint8_t foptslen() { return _foptslen; }
 
 	std::string encode() {
 		std::string buf;
 
 		char octs[1] = {0};
-		octs[0] |= ((_adr       ? 1 : 0) << 7);
-		octs[0] |= ((_adrackreq ? 1 : 0) << 6);
-		octs[0] |= ((_ack       ? 1 : 0) << 5);
-		octs[0] |= ((_fpending  ? 1 : 0) << 4);
-		octs[0] |= ((_foptslen & 0x0f));
+		octs[0] |= (_adr       << 7);
+		octs[0] |= (_adrackreq << 6);
+		octs[0] |= (_ack       << 5);
+		octs[0] |= (_fpending  << 4);
+		octs[0] |= (_foptslen & 0x0f);
 
 		buf += std::string(octs, 1);
 
 		return buf;
+	}
+
+	static FCtrl * decode(std::string bytes) {
+		bool    adr       = ((bytes[0] >> 7) & 0x01);
+		bool    adrackreq = ((bytes[0] >> 6) & 0x01);
+		bool    ack       = ((bytes[0] >> 5) & 0x01);
+		bool    fpending  = ((bytes[0] >> 4) & 0x01);
+		uint8_t foptslen  = ((bytes[0]     ) & 0x0f);
+
+		return new FCtrl(adr, adrackreq, ack, fpending, foptslen);
 	}
 };
 
@@ -132,7 +156,6 @@ public:
 		};
 		buf += std::string(octs, 2);
 		buf += _fopts->encode();
-		std::cout << buf << std::endl;
 
 		return buf;
 	}
@@ -188,10 +211,18 @@ public:
 	std::string encode() {
 		std::string buf;
 
-		char packed = static_cast<char>(_mtype & 0x07 << 5);
-		buf += std::string(packed, 1);
+		char octs[1] = {
+			static_cast<char>((_mtype & 0x07) << 5)
+		};
+		buf += std::string(octs, 1);
 
 		return buf;
+	}
+
+	static MHDR * decode(std::string bytes) {
+		uint8_t mtype = ((bytes[0] >> 5) & 0x07);
+
+		return new MHDR(mtype);
 	}
 };
 
@@ -215,8 +246,10 @@ public:
 
 		buf += _fhdr->encode();
 		buf += _frmpayload->encode();
-		char packed = static_cast<char>(_fport);
-		buf += std::string(packed, 1);
+		char octs[1] = {
+			static_cast<char>(_fport)
+		};
+		buf += std::string(octs, 1);
 
 		return buf;
 	}
@@ -302,63 +335,4 @@ public:
 };
 
 
-int main()
-{
-	auto phypayload = new PHYPayload(
-		new MHDR(
-			1 // mtype
-		),
-		new MACPayload(
-			new FHDR(
-				new DevAddr(
-					0x1,    // nwkid
-					0x1     // nwkaddr
-				),
-				new FCtrl(
-					true, // adr
-					true, // adrackreq
-					true, // ack
-					true, // fpending
-					3     // foptslen
-				),
-				0, // fcnt
-				new FOpts()
-			),
-			new FRMPayload(
-				new Payload(
-					new std::string("\x01\x02")
-				)
-			),
-			// fport
-			1
-		)
-	);
-
-	std::string phypayload_enc = phypayload->encode();
-	for (int i = 0; i < phypayload_enc.size(); i++)
-		printf("%02x", phypayload_enc[i]);
-	std::cout << std::endl;
-
-	auto fhdr =
-	//		new FHDR(
-	//			new DevAddr(
-	//				0x1,    // nwkid
-	//				0x1     // nwkaddr
-	//			),
-				new FCtrl(
-					true, // adr
-					true, // adrackreq
-					true, // ack
-					true, // fpending
-					3     // foptslen
-	//			),
-	//			0, // fcnt
-	//			new FOpts()
-			);
-	std::string fhdr_enc = fhdr->encode();
-	for (int i = 0; i < fhdr_enc.size(); i++)
-		printf("%02x", fhdr_enc[i]);
-	std::cout << std::endl;
-	return 0;
-}
 
