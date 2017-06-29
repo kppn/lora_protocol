@@ -9,13 +9,39 @@ using namespace std;
 BOOST_AUTO_TEST_CASE(encode_mhdr)
 {
 	MHDR mhdr(
-			1 // mtype
+			MHDR::MType::JoinAccept
 		);
 
 	BOOST_CHECK_EQUAL(
 		mhdr.encode(),
 		"\x20"s
 	);
+}
+
+BOOST_AUTO_TEST_CASE(query_mtype_of_mhdr)
+{
+	MHDR * mhdr;
+
+	mhdr = new MHDR(MHDR::MType::JoinRequest);
+	BOOST_CHECK_EQUAL( mhdr->is_join_request(), true);
+
+	mhdr = new MHDR(MHDR::MType::ConfirmedDataDown);
+	BOOST_CHECK_EQUAL( mhdr->is_confirmed_data_down(), true);
+}
+
+BOOST_AUTO_TEST_CASE(decode_mhdr)
+{
+	MHDR * mhdr;
+
+	mhdr = MHDR::decode("\x00"s);
+
+	BOOST_CHECK_EQUAL( mhdr->mtype(), MHDR::MType::JoinRequest );
+	BOOST_CHECK_EQUAL( mhdr->major(), 0 );
+
+	mhdr = MHDR::decode("\xa0"s);
+
+	BOOST_CHECK_EQUAL( mhdr->mtype(), MHDR::MType::ConfirmedDataDown );
+	BOOST_CHECK_EQUAL( mhdr->major(), 0 );
 }
 
 
@@ -141,7 +167,7 @@ BOOST_AUTO_TEST_CASE(encode_phypayload)
 
 	auto phypayload = new PHYPayload(
 		new MHDR(
-			1 // mtype
+			MHDR::MType::JoinAccept // mtype
 		),
 		new MACPayload(
 			new FHDR(

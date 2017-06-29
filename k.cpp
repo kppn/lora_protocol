@@ -1,15 +1,16 @@
 #include <iostream>
 #include <bitset>
+#include <typeinfo>
 
 using namespace std;
 
+class Hoge{};
+
 int main()
 {
-	bool a = 1;
-	int x = true;
+	Hoge hoge;
 
-	cout << std::boolalpha << a << endl;
-	cout << x << endl;
+	cout << (typeid(hoge) == typeid(Hoge)) << endl;
 
 	return 0;
 }

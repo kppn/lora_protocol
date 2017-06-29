@@ -21,6 +21,11 @@ class LinkADRAns {
 class MACCommand {
 };
 
+
+//=================================================
+// Basics
+//=================================================
+
 class DevAddr {
 private:
 	uint8_t  _nwkid;
@@ -38,10 +43,10 @@ public:
 		std::string buf;
 
 		char octs[4] = {
-			static_cast<char>((_nwkaddr & 0x000000ff)),
-			static_cast<char>((_nwkaddr & 0x0000ff00) >> 8),
-			static_cast<char>((_nwkaddr & 0x00ff0000) >> 16),
-			static_cast<char>(((_nwkaddr & 0x01000000) >> 24) | (_nwkid << 1))
+			static_cast<char>((nwkaddr() & 0x000000ff)),
+			static_cast<char>((nwkaddr() & 0x0000ff00) >> 8),
+			static_cast<char>((nwkaddr() & 0x00ff0000) >> 16),
+			static_cast<char>(((nwkaddr() & 0x01000000) >> 24) | (nwkid() << 1))
 		};
 		buf += std::string(octs, 4);
 
@@ -97,11 +102,11 @@ public:
 		std::string buf;
 
 		char octs[1] = {0};
-		octs[0] |= (_adr       << 7);
-		octs[0] |= (_adrackreq << 6);
-		octs[0] |= (_ack       << 5);
-		octs[0] |= (_fpending  << 4);
-		octs[0] |= (_foptslen & 0x0f);
+		octs[0] |= (adr()       << 7);
+		octs[0] |= (adrackreq() << 6);
+		octs[0] |= (ack()       << 5);
+		octs[0] |= (fpending()  << 4);
+		octs[0] |= (foptslen() & 0x0f);
 
 		buf += std::string(octs, 1);
 
@@ -148,22 +153,17 @@ public:
 	std::string encode() {
 		std::string buf;
 
-		buf += _devaddr->encode();
-		buf += _fctrl->encode();
+		buf += devaddr()->encode();
+		buf += fctrl()->encode();
 		char octs[2] = {
-			static_cast<char>((_fcnt & 0xff)),
-			static_cast<char>((_fcnt & 0xff00) >> 8)
+			static_cast<char>((fcnt() & 0xff)),
+			static_cast<char>((fcnt() & 0xff00) >> 8)
 		};
 		buf += std::string(octs, 2);
 		buf += _fopts->encode();
 
 		return buf;
 	}
-};
-
-class FPort {
-private:
-public:
 };
 
 
@@ -190,29 +190,49 @@ public:
 	{
 	}
 
+	Payload * payload() { return _payload; }
+
 	std::string encode() {
-		return _payload->encode();
+		return payload()->encode();
 	}
 
 };
 
 class MHDR {
-private:
-	uint8_t _mtype;
 public:
-	MHDR(uint8_t mtype)
+	typedef enum {
+		JoinRequest           = 0,
+		JoinAccept            = 1,
+		UnconfirmedDataUp     = 2,
+		UnconfirmedDataDown   = 3,
+		ConfirmedDataUp       = 4,
+		ConfirmedDataDown     = 5
+	} MType;
+
+private:
+	MType _mtype;
+
+public:
+	MHDR(MType mtype)
 		: _mtype(mtype)
 	{
 	}
 
-	uint8_t mtype() { return _mtype; }
-	uint8_t major() { return 0; }
+	MType mtype() { return _mtype; }
+	uint8_t major() { return 0; }   // only 0 is supported
+
+	bool is_join_request()          { return mtype() == MType::JoinRequest; }
+	bool is_join_accept()           { return mtype() == MType::JoinAccept; }
+	bool is_unconfirmed_data_up()   { return mtype() == MType::UnconfirmedDataUp; }
+	bool is_unconfirmed_data_down() { return mtype() == MType::UnconfirmedDataDown; }
+	bool is_confirmed_data_up( )    { return mtype() == MType::ConfirmedDataUp; }
+	bool is_confirmed_data_down( )  { return mtype() == MType::ConfirmedDataDown; }
 
 	std::string encode() {
 		std::string buf;
 
 		char octs[1] = {
-			static_cast<char>((_mtype & 0x07) << 5)
+			static_cast<char>((mtype() & 0x07) << 5)
 		};
 		buf += std::string(octs, 1);
 
@@ -220,7 +240,7 @@ public:
 	}
 
 	static MHDR * decode(std::string bytes) {
-		uint8_t mtype = ((bytes[0] >> 5) & 0x07);
+		MType mtype = static_cast<MType>( ((bytes[0] >> 5) & 0x07) );
 
 		return new MHDR(mtype);
 	}
@@ -244,10 +264,10 @@ public:
 	std::string encode() {
 		std::string buf;
 
-		buf += _fhdr->encode();
-		buf += _frmpayload->encode();
+		buf += fhdr()->encode();
+		buf += frmpayload()->encode();
 		char octs[1] = {
-			static_cast<char>(_fport)
+			static_cast<char>(fport())
 		};
 		buf += std::string(octs, 1);
 
@@ -326,9 +346,9 @@ public:
 	std::string encode() {
 		std::string buf;
 
-		buf += _mhdr->encode();
-		buf += _macpayload->encode();
-		buf += _mic->encode();
+		buf += mhdr()->encode();
+		buf += macpayload()->encode();
+		buf += mic()->encode();
 
 		return buf;
 	}
